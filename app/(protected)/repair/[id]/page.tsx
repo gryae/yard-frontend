@@ -257,12 +257,11 @@ export default function RepairPage() {
           
           <label className="relative group cursor-pointer block">
             <input
-              type="file"
-              multiple
-              accept="image/*"
-              capture="environment"
-              onChange={handlePhotoChange}
+              type="file" 
+              multiple 
+              accept="image/jpeg, image/png, image/webp, image/jpg" 
               className="hidden"
+              onChange={handlePhotoChange}
             />
             <div className="border-2 border-dashed border-white/20 rounded-2xl p-10 flex flex-col items-center justify-center bg-white/5 group-hover:bg-white/10 group-hover:border-amber-400 transition-all">
               <ImageIcon className="text-amber-400 mb-3" size={40} />
@@ -280,7 +279,7 @@ export default function RepairPage() {
                 <button 
                   type="button"
                   onClick={() => removePhoto(i)}
-                  className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                  className="absolute top-1 right-1 bg-red-500 text-white p-1.5 rounded-full shadow-lg"
                 >
                   <X size={12} />
                 </button>
