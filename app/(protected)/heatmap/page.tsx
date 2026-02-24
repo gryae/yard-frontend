@@ -13,10 +13,11 @@ import {
   LayoutGrid,
   TrendingUp,
   AlertCircle,
-  Navigation
+  Navigation,
+  FileText
 } from 'lucide-react'
 
-// --- INTERFACES (Tetap Sama) ---
+// --- INTERFACES ---
 interface Goods {
   id: string
   status: string
@@ -25,6 +26,7 @@ interface Goods {
   brand: string
   engineNumber: string
   chassisNumber: string
+  blNumber: string // Tambahan BL Number
 }
 
 interface Slot {
@@ -53,7 +55,8 @@ export default function BirdEyeHeatmap() {
     if (search.length > 3) {
       const matchedSlot = data.find(s => 
         s.goods?.engineNumber.toLowerCase().includes(search.toLowerCase()) ||
-        s.goods?.chassisNumber.toLowerCase().includes(search.toLowerCase())
+        s.goods?.chassisNumber.toLowerCase().includes(search.toLowerCase()) ||
+        s.goods?.blNumber?.toLowerCase().includes(search.toLowerCase()) // Search by BL
       )
       if (matchedSlot) {
         const el = document.getElementById(`slot-${matchedSlot.zone}-${matchedSlot.row}-${matchedSlot.lane}`)
@@ -71,11 +74,14 @@ export default function BirdEyeHeatmap() {
     }
   }
 
-  // --- LOGIC: COLORING (Tetap Sama) ---
-  const getRedWhiteColor = (ratio: number) => {
-    const red = 239 
-    const greenBlue = Math.floor(255 * ratio)
-    return `rgb(${red},${greenBlue},${greenBlue})`
+  // --- LOGIC: COLORING (MERAH KE HITAM) ---
+  // Merah (Oldest/Rank 1) -> Hitam (Newest)
+  const getHeatmapColor = (ratio: number) => {
+    // ratio 0 = Oldest (Red), ratio 1 = Newest (Black)
+    const r = Math.floor(239 * (1 - ratio))
+    const g = Math.floor(68 * (1 - ratio))
+    const b = Math.floor(68 * (1 - ratio))
+    return `rgb(${r},${g},${b})`
   }
 
   const getColor = (slot: Slot) => {
@@ -86,16 +92,26 @@ export default function BirdEyeHeatmap() {
 
     const ranks = data.filter(d => d.goods?.fifoRank).map(d => d.goods!.fifoRank!)
     const maxRank = Math.max(...ranks, 1)
-    const ratio = (slot.goods.fifoRank || maxRank) / maxRank
-    return getRedWhiteColor(ratio)
+    const minRank = Math.min(...ranks, 1)
+    
+    // Normalisasi: Rank 1 (Oldest) jadi ratio 0, Rank Max (Newest) jadi ratio 1
+    const ratio = (slot.goods.fifoRank! - minRank) / (maxRank - minRank || 1)
+    return getHeatmapColor(ratio)
   }
 
   const isMatched = (slot: Slot) => {
-    if (!slot.goods || !search) return false
+    if (!slot.goods) return false
+    
+    // Logic Animasi Tuing-Tuing untuk Filter Status
+    if (statusFilter !== 'ALL' && slot.goods.status === statusFilter && !search) return true
+
+    // Logic Animasi untuk Search
+    if (!search) return false
     const keyword = search.toLowerCase()
     return (
       slot.goods.engineNumber.toLowerCase().includes(keyword) ||
       slot.goods.chassisNumber.toLowerCase().includes(keyword) ||
+      slot.goods.blNumber?.toLowerCase().includes(keyword) ||
       slot.goods.brand?.toLowerCase().includes(keyword)
     )
   }
@@ -115,6 +131,7 @@ export default function BirdEyeHeatmap() {
       Brand: d.goods!.brand,
       Engine: d.goods!.engineNumber,
       Chassis: d.goods!.chassisNumber,
+      BL_Number: d.goods!.blNumber,
       Aging: d.goods!.aging,
     }))
     const worksheet = XLSX.utils.json_to_sheet(rows)
@@ -172,7 +189,6 @@ export default function BirdEyeHeatmap() {
         </div>
 
         <div className="relative inline-block">
-          {/* Lane Numbers (Horizontal Axis) */}
           <div className="flex ml-8 mb-2">
             {Array.from({length: maxLanes}).map((_, i) => (
               <div key={i} className="w-5 md:w-6 text-[9px] font-black text-slate-300 text-center">{i+1}</div>
@@ -182,7 +198,6 @@ export default function BirdEyeHeatmap() {
           <div className="flex flex-col gap-1.5">
             {rows.map(row => (
               <div key={row} className="flex gap-1.5 items-center">
-                {/* Row Label (Vertical Axis) */}
                 <div className="w-8 text-[10px] font-black text-slate-400 text-right pr-2">R{row}</div>
                 {zoneData.filter(d => d.row === row).map(slot => (
                   <SlotSquare key={`${slot.zone}${slot.row}${slot.lane}`} slot={slot} />
@@ -213,11 +228,10 @@ export default function BirdEyeHeatmap() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-          {/* SEARCH */}
           <div className="relative flex-1 lg:flex-none">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input 
-              placeholder="Search Engine / Chassis..." 
+              placeholder="Search Engine / Chassis / BL..." 
               className="pl-11 pr-4 py-3.5 bg-slate-100 border-none rounded-[1.2rem] text-xs font-bold w-full lg:w-64 focus:bg-white focus:ring-4 focus:ring-indigo-50 transition-all outline-none"
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -226,14 +240,13 @@ export default function BirdEyeHeatmap() {
 
           <div className="h-10 w-[1px] bg-slate-200 hidden md:block mx-2" />
 
-          {/* EXPORT */}
           <button onClick={exportPickingList} className="bg-slate-900 hover:bg-indigo-600 text-white px-6 py-3.5 rounded-[1.2rem] text-xs font-black flex items-center gap-2 transition-all active:scale-95 shadow-xl shadow-slate-200">
             <FileDown size={16} /> EXPORT LIST
           </button>
         </div>
       </div>
 
-      {/* QUICK STATS CARDS (NEW) */}
+      {/* QUICK STATS CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-[1600px] mx-auto mb-8">
         <StatCard title="Yard Capacity" value={data.length} icon={<LayoutGrid size={18}/>} color="bg-blue-500" />
         <StatCard title="Occupied" value={data.filter(s => s.goods).length} icon={<CheckCircle2 size={18}/>} color="bg-emerald-500" />
@@ -251,6 +264,18 @@ export default function BirdEyeHeatmap() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* LEGEND (New) */}
+          <div className="flex items-center gap-4 mr-4 border-r pr-4 border-slate-200">
+             <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-red-500 rounded-sm" />
+                <span className="text-[8px] font-bold text-slate-500">OLDEST</span>
+             </div>
+             <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-black rounded-sm" />
+                <span className="text-[8px] font-bold text-slate-500">NEWEST</span>
+             </div>
+          </div>
+
           <div className="flex bg-slate-100 p-1 rounded-xl">
             {[0, 3, 7, 14].map(v => (
               <button 
@@ -263,7 +288,7 @@ export default function BirdEyeHeatmap() {
             ))}
           </div>
           <select 
-              className="bg-slate-100 text-[10px] font-black px-4 py-2.5 rounded-xl outline-none cursor-pointer text-slate-600 border-none"
+              className="bg-slate-100 text-[10px] font-black px-4 py-2.5 rounded-xl outline-none cursor-pointer text-slate-600 border-none focus:ring-2 focus:ring-indigo-200"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -277,19 +302,16 @@ export default function BirdEyeHeatmap() {
 
       {/* MAP AREA */}
       <div ref={scrollContainerRef} className="max-w-[1600px] mx-auto flex gap-8 overflow-x-auto pb-12 pt-4 scrollbar-hide">
-        {/* PDI Area */}
         <div className="animate-in slide-in-from-left duration-700">
           {renderZone('E', 'PDI Area (E)', 'bg-indigo-500')}
         </div>
 
-        {/* Horizontal Zones */}
         <div className="flex flex-col gap-8 animate-in slide-in-from-bottom duration-1000">
           <div className="flex gap-8">
             {renderZone('D', 'Zone D', 'bg-emerald-500')}
             {renderZone('C', 'Zone C', 'bg-emerald-500')}
           </div>
           
-          {/* ROADWAY */}
           <div className="relative h-24 w-full flex items-center justify-center">
             <div className="absolute inset-0 bg-slate-200/40 rounded-[3rem] border-4 border-dashed border-slate-300/50" />
             <div className="flex items-center gap-8 z-10 opacity-20">
@@ -320,7 +342,18 @@ export default function BirdEyeHeatmap() {
             <p className="text-slate-400 text-[10px] font-mono mt-1">{selected.chassisNumber}</p>
           </div>
           
-          <div className="p-8 -mt-8 bg-white rounded-t-[3rem] space-y-6">
+          <div className="p-8 -mt-8 bg-white rounded-t-[3rem] space-y-4">
+             {/* BL Number Section */}
+             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="p-2 bg-white rounded-xl shadow-sm">
+                  <FileText size={16} className="text-indigo-500" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase">BL Number</p>
+                  <p className="text-xs font-bold text-slate-700">{selected.blNumber || 'N/A'}</p>
+                </div>
+             </div>
+
              <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-50 p-4 rounded-[1.5rem] border border-slate-100">
                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Aging Time</p>
@@ -339,7 +372,7 @@ export default function BirdEyeHeatmap() {
                    </div>
                    <span className="text-xs font-black text-emerald-700 uppercase">{selected.status}</span>
                 </div>
-                <button className="text-[10px] font-black text-indigo-600 hover:underline">VIEW HISTORY</button>
+                <button className="text-[10px] font-black text-indigo-600 hover:underline">HISTORY</button>
              </div>
           </div>
         </div>
@@ -348,7 +381,6 @@ export default function BirdEyeHeatmap() {
   )
 }
 
-// --- SUB-COMPONENT: STAT CARD ---
 function StatCard({title, value, icon, color}: any) {
   return (
     <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-5 transition-all hover:shadow-md">
