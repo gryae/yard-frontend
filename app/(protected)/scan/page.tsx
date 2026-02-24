@@ -132,6 +132,19 @@ export default function ScanPage() {
 
   return (
     <div className="max-w-md mx-auto space-y-6 pb-10">
+      {/* INJECT CSS DI SINI */}
+      <style jsx global>{`
+        #reader { border: none !important; background: black !important; }
+        #reader__dashboard_section_csr { padding: 20px !important; }
+        #reader span, #reader b { color: white !important; font-size: 14px !important; }
+        #reader button { 
+          background: #2563eb !important; color: white !important; 
+          border-radius: 10px !important; padding: 10px 20px !important;
+          border: none !important; text-transform: uppercase; font-size: 12px;
+          font-weight: bold; margin-bottom: 10px;
+        }
+        #reader img { display: none; } /* sembunyikan icon gambar bawaan jika ada */
+      `}</style>
       <div className="flex items-center gap-3 mb-2">
         <div className="bg-blue-600 p-2 rounded-lg text-white">
           <QrCode size={20} />
